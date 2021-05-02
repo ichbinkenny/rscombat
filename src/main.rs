@@ -2,11 +2,16 @@ use druid::{Env, Window, WindowDesc, WindowHandle, WindowId, Widget, Data, Lens,
 use druid::widget::{Label, Flex, Align, Button};
 use druid::widget::Tabs;
 
+mod packet_control;
+
+pub use packet_control::PacketInterface;
+
 const VERSION_NO : &str = "0.0.1";
 
 const WINDOW_TITLE : &str = "RS Combat: Cross Platform Parser for FFXIV!";
 const NUM_TAB_ENTRIES : usize = 4;
 const TAB_ENTRIES : [&str; NUM_TAB_ENTRIES] = ["Main", "Parser", "Plugins", "About"];
+
 
 #[derive(Debug)]
 enum AlertLevel {
@@ -24,6 +29,7 @@ struct InitLayout {
 
 
 fn main() {
+   let packet_if = PacketInterface::new();
    let primary_window = WindowDesc::new(startup)
        .title(WINDOW_TITLE)
        .window_size((1600.0, 1000.0));
