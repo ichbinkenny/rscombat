@@ -1,6 +1,7 @@
 use druid::{Env, Window, WindowDesc, WindowHandle, WindowId, Widget, Data, Lens, WidgetExt, AppLauncher};
 use druid::widget::{Label, Flex, Align, Button};
 use druid::widget::Tabs;
+use std::sync::RwLock;
 
 mod packet_control;
 
@@ -11,6 +12,8 @@ const VERSION_NO : &str = "0.0.1";
 const WINDOW_TITLE : &str = "RS Combat: Cross Platform Parser for FFXIV!";
 const NUM_TAB_ENTRIES : usize = 4;
 const TAB_ENTRIES : [&str; NUM_TAB_ENTRIES] = ["Main", "Parser", "Plugins", "About"];
+const FFXIV_PROC_NAME : &str = "ffxiv";
+const FFXIV_NAME : &str = "ffxiv_dx11.exe";
 
 
 #[derive(Debug)]
@@ -22,20 +25,32 @@ enum AlertLevel {
     
 }
 
-#[derive(Clone, Data, Lens)]
+
+trait ProgramInterface {
+    fn get_packet_interface(&self) -> PacketInterface {
+        PacketInterface::new()
+    }
+}
+
+#[derive(Clone, Data)]
 struct InitLayout {
     title: String,
 }
 
+#[macro_use]
+extern crate lazy_static;
+
+lazy_static! {
+    static ref packet_if: PacketInterface = PacketInterface::new();
+}
 
 fn main() {
-   let packet_if = PacketInterface::new();
    let primary_window = WindowDesc::new(startup)
        .title(WINDOW_TITLE)
        .window_size((1600.0, 1000.0));
 
    let starting_state = InitLayout {
-        title: "RS Combat".into()
+        title: "RS Combat".into(),
    };
 
    AppLauncher::with_window(primary_window)
@@ -63,6 +78,7 @@ fn gen_tabs() -> impl Widget<InitLayout>
 fn gen_tab_layout(tabname : &str) -> impl Widget<InitLayout> {
     let mut layout = Flex::row();
    match tabname {
+       "Main" => { layout.add_child(gen_main_window()); },
        "Plugins" => { layout.add_child(gen_plugin_window()); },
        "About" => {
             let label = Label::new(|_d: &InitLayout, _e: &Env| format!("Version: {}\n Authored by Kenneth Hunter.", VERSION_NO));
@@ -74,6 +90,17 @@ fn gen_tab_layout(tabname : &str) -> impl Widget<InitLayout> {
         },
    }
    layout
+}
+
+
+fn gen_main_window() -> impl Widget<InitLayout> {
+    let mut layout = Flex::column();
+    let conn_btn = Button::new("Connect to game").on_click(|_ctx, _data, _env| -> () {
+        packet_if.detect_process(FFXIV_PROC_NAME, FFXIV_NAME);
+        println!("Current pid: {}", packet_if.get_process_id());
+    });
+    layout.add_child(conn_btn);
+    layout
 }
 
 fn gen_plugin_window() -> impl Widget<InitLayout>{
