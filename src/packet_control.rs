@@ -7,15 +7,28 @@ use std::sync::RwLock;
 pub struct PacketInterface {
    pub controller: i32,
    pub process_id: RwLock<u32>,
-   pub port_numbers: Vec<u32>,
+   pub pcap_if: RwLock<pcap::Device>,
+   pcap_capture: pcap::Capture<pcap::Active>,
 }
+
+#[derive(Debug, Clone)]
+pub struct SniffingInitError;
+
+impl std::fmt::Display for SniffingInitError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Unable to start pcap.")
+    }
+}
+
 
 impl PacketInterface {
     pub fn new() -> PacketInterface {
+        let dev = pcap::Device::lookup().unwrap();
         let intf = PacketInterface {
-            port_numbers: vec![],
             controller: -1,
             process_id: RwLock::new(0),
+            pcap_if: RwLock::new(dev),
+            pcap_capture: pcap::Capture<pcap::Active>,
         };
         intf
     }
@@ -96,16 +109,10 @@ impl PacketInterface {
             _ => { println!("Invalid id, or process no longer exists."); }
         }
     }
-    fn get_ports(&self) -> Vec<u32> {
-        return self.port_numbers.clone()
-    }
-    fn set_ports(&mut self, ports: Vec<u32>) {
-        self.port_numbers = ports;
-        self.port_numbers.sort();
-    }
-    fn add_port(&mut self, port: u32) {
-        self.port_numbers.push(port);
-        self.port_numbers.sort();
+    fn init_capture(&mut self) -> Result<pcap::Capture<pcap::Inactive>, SniffingInitError> {
+        let dev = self.pcap_if.read().unwrap();
+        self.pcap_capture = pcap::Capture::from_device(dev);
+        return self.pcap_capture;
     }
 }
 
@@ -114,7 +121,6 @@ impl Clone for PacketInterface {
         let mut res = PacketInterface::new();
         res.controller = self.controller;
         res.process_id = RwLock::new(self.get_process_id());
-        res.port_numbers = self.port_numbers.clone();
         res
     }
 }
@@ -124,8 +130,6 @@ impl Data for PacketInterface {
         let mut sameness = true;
         sameness &= self.controller == other.controller;
         sameness &= *self.process_id.read().unwrap() == *other.process_id.read().unwrap();
-        sameness &= self.port_numbers.len() == other.port_numbers.len();
-        sameness &= self.port_numbers.eq(&other.port_numbers);
         return sameness;
     }
 }
